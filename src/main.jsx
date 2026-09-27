@@ -65,7 +65,7 @@ function App(){
   },[authReady,user?.id]);
 
   useEffect(()=>{loadAll();loadRoster()},[]);
-  useEffect(()=>{if(admin)loadRoster()},[admin]);
+  useEffect(()=>{if(supabase)loadRoster()},[]);
 
   const teamMap=useMemo(()=>Object.fromEntries(teams.map(x=>[x.id,x])),[teams]);
   const divisionMap=useMemo(()=>Object.fromEntries(divisions.map(x=>[x.id,x])),[divisions]);
@@ -136,7 +136,7 @@ function App(){
       byId[r.id].clubs.push(clubNames[r.club_id]||"");
       if(Number(r.rating)>Number(byId[r.id].rating))byId[r.id].rating=r.rating;
     }
-    setRoster(Object.values(byId));
+    setRoster(Object.values(byId).sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)||String(a.name||"").localeCompare(String(b.name||""))));
   }
 
   async function signIn(e){
@@ -252,7 +252,7 @@ function App(){
         <span><b>Melbourne Korean Tennis Association</b><small>OFFICIAL TOURNAMENT SYSTEM</small></span>
       </button>
       <nav>
-        {[["home","홈"],["schedule","대진표"],["standings","실시간 순위"],["teams","팀 · 선수"],["scores","경기 입력"]].map(x=>
+        {[["home","홈"],["ranking","통합 랭킹"],["schedule","대진표"],["standings","실시간 순위"],["teams","팀 · 선수"],["scores","경기 입력"]].map(x=>
           <button key={x[0]} className={tab===x[0]?"active":""} onClick={()=>setTab(x[0])}>{x[1]}</button>
         )}
         {admin&&<button className={tab==="admin"?"active":""} onClick={()=>setTab("admin")}>관리자</button>}
@@ -305,6 +305,44 @@ function App(){
           </div>
         </section>
       </>}
+
+      {tab==="ranking"&&<section className="panel">
+        <div className="panelHead">
+          <div><span>MKTA AKTR RANKING</span><h2>4개 클럽 통합 랭킹</h2></div>
+          <small>OCTC · MKTC · VKTC · WKTC 활성 회원을 글로벌 선수 ID 기준으로 한 번만 표시합니다.</small>
+        </div>
+
+        <div className="rankingHero">
+          <div>
+            <b>{roster.length}</b>
+            <span>통합 선수</span>
+          </div>
+          <p>같은 선수가 여러 클럽에 등록되어 있어도 한 명으로 합쳐지고, 현재 공용 AKTR 기준으로 순위가 정해집니다.</p>
+        </div>
+
+        {roster.length===0?<div className="empty">등록된 통합 랭킹 선수를 불러오는 중이거나 아직 표시할 선수가 없습니다.</div>:<>
+          <div className="rankingPodium">
+            {roster.slice(0,3).map((p,i)=><article key={p.id} className={`podium rank${i+1}`}>
+              <span>{i===0?"1st":i===1?"2nd":"3rd"}</span>
+              <h3>{p.name}</h3>
+              <strong>AKTR {p.rating}</strong>
+              <small>{p.clubs.join(" · ")}</small>
+            </article>)}
+          </div>
+
+          <div className="integratedRankingTable">
+            <div className="integratedRankHead">
+              <span>순위</span><span>선수</span><span>소속 클럽</span><span>AKTR</span>
+            </div>
+            {roster.map((p,i)=><div className="integratedRankRow" key={p.id}>
+              <b>{i+1}</b>
+              <strong>{p.name}</strong>
+              <span className="clubChips">{p.clubs.map(c=><em key={c}>{c}</em>)}</span>
+              <span className="aktrValue">{p.rating}</span>
+            </div>)}
+          </div>
+        </>}
+      </section>}
 
       {tab==="schedule"&&<section className="panel">
         <div className="panelHead"><div><span>DRAW</span><h2>클럽대항전 대진표</h2></div></div>
