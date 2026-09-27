@@ -168,3 +168,57 @@
     font-size:15px;
   }
 }
+
+
+/* =========================================================
+   MKTA V1.2 — CLUB IDENTITY COLORS
+   Uses each club site's established primary color.
+   OCTC #748c27 / MKTC #7b2d43 / VKTC #4a9fd5 / WKTC #b75f18
+   ========================================================= */
+.clubChips{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.clubChip{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:48px;
+  padding:5px 8px;
+  border-radius:999px;
+  color:#fff !important;
+  font-style:normal;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.02em;
+  border:1px solid transparent;
+  box-shadow:0 2px 6px rgba(24,43,63,.08);
+}
+.clubChip.octc{
+  background:#748c27 !important;
+  border-color:#667f1d !important;
+}
+.clubChip.mktc{
+  background:#7b2d43 !important;
+  border-color:#552032 !important;
+}
+.clubChip.vktc{
+  background:#4a9fd5 !important;
+  border-color:#2d6f9c !important;
+}
+.clubChip.wktc{
+  background:#b75f18 !important;
+  border-color:#74320e !important;
+}
+
+/* Top-3 cards use the exact same club color language. */
+.rankingPodium small .clubChips{
+  margin-top:8px;
+}
+.rankingPodium small .clubChip{
+  font-size:8px;
+  padding:4px 7px;
+  min-width:44px;
+}

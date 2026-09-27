@@ -14,6 +14,7 @@ const CLUB_IDS={
 function timeText(v){return String(v||"").slice(0,5)}
 function statusText(v){return v==="live"?"진행중":v==="completed"?"종료":"준비중"}
 function deltaText(v){const n=Number(v||0);return `${n>=0?"+":""}${n}`}
+function ClubBadges({clubs=[]}){return <span className="clubChips">{clubs.map(c=><em key={c} className={`clubChip ${String(c).toLowerCase()}`}>{c}</em>)}</span>}
 function byStanding(a,b){
   if(Number(b.points)!==Number(a.points))return Number(b.points)-Number(a.points);
   if(Number(b.games_for)!==Number(a.games_for))return Number(b.games_for)-Number(a.games_for);
@@ -326,7 +327,7 @@ function App(){
               <span>{i===0?"1st":i===1?"2nd":"3rd"}</span>
               <h3>{p.name}</h3>
               <strong>AKTR {p.rating}</strong>
-              <small>{p.clubs.join(" · ")}</small>
+              <small><ClubBadges clubs={p.clubs}/></small>
             </article>)}
           </div>
 
@@ -337,7 +338,7 @@ function App(){
             {roster.map((p,i)=><div className="integratedRankRow" key={p.id}>
               <b>{i+1}</b>
               <strong>{p.name}</strong>
-              <span className="clubChips">{p.clubs.map(c=><em key={c}>{c}</em>)}</span>
+              <ClubBadges clubs={p.clubs}/>
               <span className="aktrValue">{p.rating}</span>
             </div>)}
           </div>
