@@ -554,3 +554,121 @@
     grid-template-columns:1fr;
   }
 }
+
+
+/* =========================================================
+   MKTA V1.7 — MANUAL INTEGRATED RANKING VISIBILITY
+   ========================================================= */
+.rankingVisibilityToolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+.rankingVisibilityToolbar input{
+  width:min(420px,100%);
+  padding:10px 12px;
+  border:1px solid #d5dfe8;
+  border-radius:10px;
+  background:#fff;
+}
+.rankingVisibilityToolbar>span{
+  padding:6px 9px;
+  border-radius:999px;
+  background:#f1f4f7;
+  color:#66788b;
+  font-size:9px;
+  font-weight:900;
+}
+.rankingVisibilityList{
+  display:grid;
+  gap:7px;
+}
+.rankingVisibilityRow{
+  display:grid;
+  grid-template-columns:minmax(220px,1fr) 110px 95px 90px;
+  align-items:center;
+  gap:12px;
+  padding:11px 12px;
+  border:1px solid #e2e8ee;
+  border-radius:12px;
+  background:#fff;
+}
+.rankingVisibilityRow.hidden{
+  background:#fafafa;
+  opacity:.78;
+}
+.rankingVisibilityRow>div:first-child{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+.rankingVisibilityName{
+  border:0;
+  padding:0;
+  background:transparent;
+  color:#173f67;
+  font-weight:900;
+  text-align:left;
+}
+.rankingVisibilityName:hover{
+  text-decoration:underline;
+}
+.rankingVisibilityRow>strong{
+  color:#194f7e;
+  font-size:11px;
+}
+.visibilityState{
+  width:max-content;
+  padding:5px 8px;
+  border-radius:999px;
+  font-size:8px;
+  font-weight:900;
+}
+.visibilityState.on{
+  background:#e8f6ee;
+  color:#26714d;
+}
+.visibilityState.off{
+  background:#f3e8e7;
+  color:#9a453e;
+}
+.visibilityAction{
+  border:1px solid #d1dbe4;
+  border-radius:8px;
+  padding:8px 9px;
+  background:#fff;
+  font-size:9px;
+  font-weight:900;
+}
+.visibilityAction.hide{
+  color:#9a453e;
+}
+.visibilityAction.show{
+  color:#26714d;
+}
+
+@media(max-width:900px){
+  .rankingVisibilityToolbar{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .rankingVisibilityToolbar input{
+    width:100%;
+  }
+  .rankingVisibilityRow{
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+  .rankingVisibilityRow>strong{
+    text-align:right;
+  }
+  .visibilityState{
+    justify-self:start;
+  }
+  .visibilityAction{
+    justify-self:end;
+  }
+}

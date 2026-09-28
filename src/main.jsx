@@ -29,6 +29,9 @@ function App(){
   const[matches,setMatches]=useState([]);
   const[players,setPlayers]=useState([]);
   const[roster,setRoster]=useState([]);
+  const[rankingRoster,setRankingRoster]=useState([]);
+  const[hiddenRankingIds,setHiddenRankingIds]=useState([]);
+  const[rankingAdminSearch,setRankingAdminSearch]=useState("");
   const[standings,setStandings]=useState([]);
   const[divisionStandings,setDivisionStandings]=useState([]);
   const[ratingChanges,setRatingChanges]=useState([]);
@@ -69,11 +72,11 @@ function App(){
       if(error){console.error(error);setAdmin(false);setAdminAccess(null);return}
       setAdmin(!!data?.allowed);
       setAdminAccess(data||null);
-      if(data?.allowed)loadMktaAdminList();
+      if(data?.allowed){loadMktaAdminList();loadRankingVisibilityAdmin();}
     });
   },[authReady,user?.id]);
 
-  useEffect(()=>{loadAll();loadRoster()},[]);
+  useEffect(()=>{loadAll();loadRoster();loadIntegratedRanking()},[]);
 
   const teamMap=useMemo(()=>Object.fromEntries(teams.map(x=>[x.id,x])),[teams]);
   const divisionMap=useMemo(()=>Object.fromEntries(divisions.map(x=>[x.id,x])),[divisions]);
@@ -148,6 +151,47 @@ function App(){
   }
 
 
+  async function loadIntegratedRanking(){
+    if(!supabase)return;
+    const{data,error}=await supabase.rpc("mkta_integrated_ranking");
+    if(error){
+      console.error("통합 랭킹 불러오기 실패",error);
+      setRankingRoster([]);
+      return;
+    }
+    setRankingRoster((data||[]).map(x=>({
+      id:x.id,
+      name:x.name,
+      rating:x.rating,
+      clubs:Array.isArray(x.clubs)?x.clubs:[]
+    })));
+  }
+
+  async function loadRankingVisibilityAdmin(){
+    if(!supabase)return;
+    const{data,error}=await supabase.rpc("mkta_ranking_hidden_ids");
+    if(error){
+      console.error("통합랭킹 숨김 목록 불러오기 실패",error);
+      setHiddenRankingIds([]);
+      return;
+    }
+    setHiddenRankingIds(Array.isArray(data)?data:[]);
+  }
+
+  async function setRankingHidden(memberId,hidden){
+    if(!admin)return;
+    const{error}=await supabase.rpc("mkta_set_ranking_hidden",{
+      p_member_id:memberId,
+      p_hidden:hidden
+    });
+    if(error){
+      alert("통합랭킹 표시 설정 실패: "+error.message);
+      return;
+    }
+    await Promise.all([loadIntegratedRanking(),loadRankingVisibilityAdmin()]);
+    showFlash(hidden?"통합랭킹에서 숨겼습니다.":"통합랭킹에 다시 표시했습니다.");
+  }
+
   async function openPlayerProfile(memberId){
     setProfileMemberId(memberId);
     setProfileFilter("ALL");
@@ -184,7 +228,7 @@ function App(){
     }
     setUser(data?.user||data?.session?.user||null);
     setAdmin(true);setAdminAccess(access||null);setLoginOpen(false);setLoginBusy(false);setLoginForm({email:"",password:""});
-    loadRoster();loadMktaAdminList();showFlash("MKTA 관리자 모드로 전환되었습니다.");
+    loadRoster();loadMktaAdminList();loadRankingVisibilityAdmin();showFlash("MKTA 관리자 모드로 전환되었습니다.");
   }
 
   async function signOut(){
@@ -347,15 +391,15 @@ function App(){
 
         <div className="rankingHero">
           <div>
-            <b>{roster.length}</b>
+            <b>{rankingRoster.length}</b>
             <span>통합 선수</span>
           </div>
-          <p>같은 선수가 여러 클럽에 등록되어 있어도 한 명으로 합쳐지고, 현재 공용 AKTR 기준으로 순위가 정해집니다.</p>
+          <p>같은 선수가 여러 클럽에 등록되어 있어도 한 명으로 합쳐지고, 관리자가 숨김 처리한 선수는 제외한 뒤 현재 공용 AKTR 기준으로 순위가 정해집니다.</p>
         </div>
 
         {roster.length===0?<div className="empty">등록된 통합 랭킹 선수를 불러오는 중이거나 아직 표시할 선수가 없습니다.</div>:<>
           <div className="rankingPodium">
-            {roster.slice(0,3).map((p,i)=><article key={p.id} className={`podium rank${i+1}`}>
+            {rankingRoster.slice(0,3).map((p,i)=><article key={p.id} className={`podium rank${i+1}`}>
               <span>{i===0?"1st":i===1?"2nd":"3rd"}</span>
               <button className="rankingPlayerName podiumName" onClick={()=>openPlayerProfile(p.id)}>{p.name}</button>
               <strong>AKTR {p.rating}</strong>
@@ -367,7 +411,7 @@ function App(){
             <div className="integratedRankHead">
               <span>순위</span><span>선수</span><span>소속 클럽</span><span>AKTR</span>
             </div>
-            {roster.map((p,i)=><div className="integratedRankRow" key={p.id}>
+            {rankingRoster.map((p,i)=><div className="integratedRankRow" key={p.id}>
               <b>{i+1}</b>
               <button className="rankingPlayerName" onClick={()=>openPlayerProfile(p.id)}>{p.name}</button>
               <ClubBadges clubs={p.clubs}/>
@@ -569,6 +613,47 @@ function App(){
             </article>
           </div>
           <div className="adminReadOnlyNotice">사이트 내부에서 관리자를 추가/삭제하지 않습니다. Supabase Authentication에서 clemens@jsme.com.au 계정을 생성하고 초기 비밀번호를 설정한 뒤 전달해 주세요.</div>
+        </section>
+
+        <section className="panel">
+          <div className="panelHead">
+            <div><span>RANKING VISIBILITY</span><h2>통합랭킹 표시 관리</h2></div>
+            <small>공식 경기 여부와 상관없이 원하는 선수를 통합랭킹에서 직접 숨기거나 다시 표시할 수 있습니다.</small>
+          </div>
+
+          <div className="rankingVisibilityToolbar">
+            <input
+              type="search"
+              value={rankingAdminSearch}
+              onChange={e=>setRankingAdminSearch(e.target.value)}
+              placeholder="회원 이름 검색"
+            />
+            <span>숨김 {hiddenRankingIds.length}명</span>
+          </div>
+
+          <div className="rankingVisibilityList">
+            {roster
+              .filter(p=>!rankingAdminSearch.trim()||String(p.name||"").toLowerCase().includes(rankingAdminSearch.trim().toLowerCase()))
+              .map(p=>{
+                const hidden=hiddenRankingIds.includes(p.id);
+                return <div className={`rankingVisibilityRow ${hidden?"hidden":""}`} key={p.id}>
+                  <div>
+                    <button className="rankingVisibilityName" onClick={()=>openPlayerProfile(p.id)}>{p.name}</button>
+                    <ClubBadges clubs={p.clubs}/>
+                  </div>
+                  <strong>AKTR {p.rating}</strong>
+                  <span className={hidden?"visibilityState off":"visibilityState on"}>
+                    {hidden?"랭킹 숨김":"랭킹 표시"}
+                  </span>
+                  <button
+                    className={hidden?"visibilityAction show":"visibilityAction hide"}
+                    onClick={()=>setRankingHidden(p.id,!hidden)}
+                  >
+                    {hidden?"다시 표시":"숨기기"}
+                  </button>
+                </div>
+              })}
+          </div>
         </section>
 
         <section className="panel">
