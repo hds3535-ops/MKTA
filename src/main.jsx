@@ -42,7 +42,9 @@ function App(){
   const[authReady,setAuthReady]=useState(false);
   const[admin,setAdmin]=useState(false);
   const[adminAccess,setAdminAccess]=useState(null);
-  const[mktaAdminList,setMktaAdminList]=useState({owner_email:"entjq87@mail.com",second_email:"clemens@jsme.com.au"});
+  const[adminPasswordForm,setAdminPasswordForm]=useState({current:"",next:"",confirm:""});
+  const[adminPasswordBusy,setAdminPasswordBusy]=useState(false);
+  const[adminPasswordError,setAdminPasswordError]=useState("");
   const[loginOpen,setLoginOpen]=useState(false);
   const[loginBusy,setLoginBusy]=useState(false);
   const[loginError,setLoginError]=useState("");
@@ -72,7 +74,7 @@ function App(){
       if(error){console.error(error);setAdmin(false);setAdminAccess(null);return}
       setAdmin(!!data?.allowed);
       setAdminAccess(data||null);
-      if(data?.allowed){loadMktaAdminList();loadRankingVisibilityAdmin();}
+      if(data?.allowed)loadRankingVisibilityAdmin();
     });
   },[authReady,user?.id]);
 
@@ -228,19 +230,68 @@ function App(){
     }
     setUser(data?.user||data?.session?.user||null);
     setAdmin(true);setAdminAccess(access||null);setLoginOpen(false);setLoginBusy(false);setLoginForm({email:"",password:""});
-    loadRoster();loadMktaAdminList();loadRankingVisibilityAdmin();showFlash("MKTA 관리자 모드로 전환되었습니다.");
+    loadRoster();loadRankingVisibilityAdmin();showFlash("MKTA 관리자 모드로 전환되었습니다.");
   }
 
   async function signOut(){
     await supabase?.auth.signOut();setAdmin(false);setAdminAccess(null);setUser(null);showFlash("로그아웃했습니다.");
   }
 
-  async function loadMktaAdminList(){
-    if(!supabase)return;
-    const{data,error}=await supabase.rpc("mkta_admin_list");
-    if(error){console.error("MKTA 관리자 목록 불러오기 실패",error);return}
-    const next=data||{owner_email:"entjq87@mail.com",second_email:"clemens@jsme.com.au"};
-    setMktaAdminList(next);
+  async function changeAdminPassword(e){
+    e.preventDefault();
+    if(!supabase||!user?.email||!admin)return;
+    if(String(user.email).toLowerCase()!=="clemens@jsme.com.au")return;
+
+    const current=adminPasswordForm.current;
+    const next=adminPasswordForm.next;
+    const confirm=adminPasswordForm.confirm;
+
+    setAdminPasswordError("");
+
+    if(!current||!next||!confirm){
+      setAdminPasswordError("현재 비밀번호와 새 비밀번호를 모두 입력해주세요.");
+      return;
+    }
+    if(next.length<8){
+      setAdminPasswordError("새 비밀번호는 8자 이상으로 설정해주세요.");
+      return;
+    }
+    if(next!==confirm){
+      setAdminPasswordError("새 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+    if(current===next){
+      setAdminPasswordError("현재 비밀번호와 다른 새 비밀번호를 입력해주세요.");
+      return;
+    }
+
+    setAdminPasswordBusy(true);
+    try{
+      const{error:verifyError}=await supabase.auth.signInWithPassword({
+        email:user.email,
+        password:current
+      });
+      if(verifyError){
+        setAdminPasswordError("현재 비밀번호가 맞지 않습니다.");
+        return;
+      }
+
+      const{error:updateError}=await supabase.auth.updateUser({password:next});
+      if(updateError)throw updateError;
+
+      setAdminPasswordForm({current:"",next:"",confirm:""});
+      await supabase.auth.signOut();
+      setUser(null);
+      setAdmin(false);
+      setAdminAccess(null);
+      setTab("home");
+      setLoginOpen(true);
+      showFlash("관리자 비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해주세요.");
+    }catch(err){
+      setAdminPasswordError("비밀번호 변경 실패: "+(err?.message||"알 수 없는 오류"));
+    }finally{
+      setAdminPasswordBusy(false);
+    }
   }
 
   async function setPlayer(matchId,side,slot,memberId){
@@ -595,25 +646,52 @@ function App(){
             </div>
           </div>
         </section>
-        <section className="panel">
+        {String(user?.email||"").toLowerCase()==="clemens@jsme.com.au"&&
+        <section className="panel adminPasswordPanel">
           <div className="panelHead">
-            <div><span>ACCESS CONTROL</span><h2>MKTA 관리자 계정</h2></div>
-            <small>이 사이트의 관리자 권한은 아래 두 계정만 사용할 수 있습니다.</small>
+            <div><span>ACCOUNT</span><h2>관리자 비밀번호 변경</h2></div>
+            <small>clemens@jsme.com.au</small>
           </div>
-          <div className="mktaAdminAccounts">
-            <article>
-              <span className="adminSlot">OWNER · 1</span>
-              <strong>{mktaAdminList.owner_email||"entjq87@mail.com"}</strong>
-              <small>MKTA 소유자 · OCTC 관리자와 동일 계정</small>
-            </article>
-            <article>
-              <span className="adminSlot">ADMIN · 2</span>
-              <strong>{mktaAdminList.second_email||"clemens@jsme.com.au"}</strong>
-              <small>MKTA 전용 관리자 · 초기 비밀번호는 외부에서 생성 후 해당 관리자가 변경해서 사용</small>
-            </article>
-          </div>
-          <div className="adminReadOnlyNotice">사이트 내부에서 관리자를 추가/삭제하지 않습니다. Supabase Authentication에서 clemens@jsme.com.au 계정을 생성하고 초기 비밀번호를 설정한 뒤 전달해 주세요.</div>
-        </section>
+
+          <form className="adminPasswordForm" onSubmit={changeAdminPassword}>
+            <label>현재 비밀번호
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={adminPasswordForm.current}
+                onChange={e=>setAdminPasswordForm({...adminPasswordForm,current:e.target.value})}
+                placeholder="현재 비밀번호"
+              />
+            </label>
+            <label>새 비밀번호
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={adminPasswordForm.next}
+                onChange={e=>setAdminPasswordForm({...adminPasswordForm,next:e.target.value})}
+                placeholder="8자 이상"
+              />
+            </label>
+            <label>새 비밀번호 확인
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={adminPasswordForm.confirm}
+                onChange={e=>setAdminPasswordForm({...adminPasswordForm,confirm:e.target.value})}
+                placeholder="새 비밀번호 다시 입력"
+              />
+            </label>
+
+            {adminPasswordError&&<div className="adminPasswordError">{adminPasswordError}</div>}
+
+            <div className="adminPasswordActions">
+              <p>변경이 완료되면 자동으로 로그아웃됩니다. 이후에는 새 비밀번호로 다시 로그인하면 됩니다.</p>
+              <button className="primary" disabled={adminPasswordBusy}>
+                {adminPasswordBusy?"변경 중...":"비밀번호 변경"}
+              </button>
+            </div>
+          </form>
+        </section>}
 
         <section className="panel">
           <div className="panelHead">
@@ -674,7 +752,7 @@ function App(){
       <form className="loginModal" onSubmit={signIn}>
         <button type="button" className="close" onClick={()=>setLoginOpen(false)}>×</button>
         <span>MKTA ADMIN</span><h2>관리자 로그인</h2>
-        <p>접속 가능한 계정은 entjq87@mail.com 과 clemens@jsme.com.au 두 개뿐입니다. 두 번째 관리자 계정은 Supabase Authentication에서 초기 비밀번호를 만든 뒤 사용하세요.</p>
+        <p>등록된 MKTA 관리자 계정으로 로그인하세요.</p>
         <input type="email" placeholder="Email" value={loginForm.email} onChange={e=>setLoginForm({...loginForm,email:e.target.value})} required/>
         <input type="password" placeholder="Password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm,password:e.target.value})} required/>
         {loginError&&<div className="loginError">{loginError}</div>}

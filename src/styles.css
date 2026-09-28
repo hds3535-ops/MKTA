@@ -672,3 +672,70 @@
     justify-self:end;
   }
 }
+
+
+/* =========================================================
+   MKTA V1.8 — CLEMENS SELF-SERVICE PASSWORD CHANGE
+   ========================================================= */
+.adminPasswordPanel .panelHead>small{
+  color:#526a82;
+  font-weight:900;
+}
+.adminPasswordForm{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  align-items:end;
+}
+.adminPasswordForm label{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  color:#526579;
+  font-size:11px;
+  font-weight:900;
+}
+.adminPasswordForm input{
+  width:100%;
+  padding:11px 12px;
+  border:1px solid #d5dfe8;
+  border-radius:10px;
+  background:#fff;
+}
+.adminPasswordError{
+  grid-column:1/-1;
+  padding:10px 12px;
+  border-radius:10px;
+  background:#fff0ed;
+  color:#9c4034;
+  font-size:10px;
+  font-weight:900;
+}
+.adminPasswordActions{
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.adminPasswordActions p{
+  margin:0;
+  color:#748397;
+  font-size:10px;
+  line-height:1.5;
+}
+.adminPasswordActions button{
+  flex:0 0 auto;
+}
+@media(max-width:760px){
+  .adminPasswordForm{
+    grid-template-columns:1fr;
+  }
+  .adminPasswordActions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+  .adminPasswordActions button{
+    width:100%;
+  }
+}
