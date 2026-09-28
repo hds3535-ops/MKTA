@@ -39,7 +39,6 @@ function App(){
     const hash=String(window.location.hash||"").replace(/^#/,"");
     return ["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home";
   });
-  const navFromPopRef=React.useRef(false);
   const[round,setRound]=useState(1);
   const[divisionFilter,setDivisionFilter]=useState("ALL");
   const[user,setUser]=useState(null);
@@ -65,11 +64,6 @@ function App(){
     const safeTab=["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(nextTab)?nextTab:"home";
     setTabState(safeTab);
 
-    if(navFromPopRef.current){
-      navFromPopRef.current=false;
-      return;
-    }
-
     const url=safeTab==="home"
       ? `${window.location.pathname}${window.location.search}`
       : `${window.location.pathname}${window.location.search}#${safeTab}`;
@@ -91,7 +85,6 @@ function App(){
         ?event.state.tab
         :(["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home");
 
-      navFromPopRef.current=true;
       setTabState(nextTab);
 
       if(nextTab==="profile"&&event.state?.memberId){
@@ -259,7 +252,7 @@ function App(){
   async function openPlayerProfile(memberId){
     setProfileMemberId(memberId);
     setProfileFilter("ALL");
-    setTab("profile",{state:{memberId}});
+    setTab("profile",{state:{memberId,fromTab:tab}});
     if(!supabase)return;
     setProfileBusy(true);
     const{data,error}=await supabase.rpc("mkta_player_match_history",{p_member_id:memberId});
@@ -542,7 +535,10 @@ function App(){
         const losses=completed.filter(x=>x.won===false).length;
         const rate=completed.length?Math.round(wins/completed.length*100):0;
         return <div className="profilePage">
-          <button className="profileBack" onClick={()=>window.history.back()}>← 이전 페이지</button>
+          <button className="profileBack" onClick={()=>{
+            if(window.history.state?.mkta&&window.history.length>1)window.history.back();
+            else setTab("ranking",{replace:true});
+          }}>← 통합 랭킹으로</button>
 
           {!member?<section className="panel"><div className="empty">회원 정보를 찾을 수 없습니다.</div></section>:<>
             <section className="playerProfileHero panel">
