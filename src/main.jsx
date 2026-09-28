@@ -38,6 +38,8 @@ function App(){
   const[user,setUser]=useState(null);
   const[authReady,setAuthReady]=useState(false);
   const[admin,setAdmin]=useState(false);
+  const[adminAccess,setAdminAccess]=useState(null);
+  const[mktaAdminList,setMktaAdminList]=useState({owner_email:"entjq87@mail.com",second_email:"clemens@jsme.com.au"});
   const[loginOpen,setLoginOpen]=useState(false);
   const[loginBusy,setLoginBusy]=useState(false);
   const[loginError,setLoginError]=useState("");
@@ -45,6 +47,10 @@ function App(){
   const[scoreInputs,setScoreInputs]=useState({});
   const[flash,setFlash]=useState("");
   const[busy,setBusy]=useState(false);
+  const[profileMemberId,setProfileMemberId]=useState(null);
+  const[playerHistory,setPlayerHistory]=useState([]);
+  const[profileBusy,setProfileBusy]=useState(false);
+  const[profileFilter,setProfileFilter]=useState("ALL");
 
   useEffect(()=>{
     if(!supabase){setAuthReady(true);return}
@@ -60,13 +66,14 @@ function App(){
     if(!supabase||!authReady)return;
     if(!user){setAdmin(false);return}
     supabase.rpc("mkta_admin_access").then(({data,error})=>{
-      if(error){console.error(error);setAdmin(false);return}
+      if(error){console.error(error);setAdmin(false);setAdminAccess(null);return}
       setAdmin(!!data?.allowed);
+      setAdminAccess(data||null);
+      if(data?.allowed)loadMktaAdminList();
     });
   },[authReady,user?.id]);
 
   useEffect(()=>{loadAll();loadRoster()},[]);
-  useEffect(()=>{if(supabase)loadRoster()},[]);
 
   const teamMap=useMemo(()=>Object.fromEntries(teams.map(x=>[x.id,x])),[teams]);
   const divisionMap=useMemo(()=>Object.fromEntries(divisions.map(x=>[x.id,x])),[divisions]);
@@ -140,6 +147,25 @@ function App(){
     setRoster(Object.values(byId).sort((a,b)=>Number(b.rating||0)-Number(a.rating||0)||String(a.name||"").localeCompare(String(b.name||""))));
   }
 
+
+  async function openPlayerProfile(memberId){
+    setProfileMemberId(memberId);
+    setProfileFilter("ALL");
+    setTab("profile");
+    if(!supabase)return;
+    setProfileBusy(true);
+    const{data,error}=await supabase.rpc("mkta_player_match_history",{p_member_id:memberId});
+    if(error){
+      console.error("통합 경기전적 불러오기 실패",error);
+      setPlayerHistory([]);
+      setProfileBusy(false);
+      return;
+    }
+    setPlayerHistory(data||[]);
+    setProfileBusy(false);
+    window.scrollTo({top:0,left:0,behavior:"auto"});
+  }
+
   async function signIn(e){
     e.preventDefault();if(loginBusy)return;
     setLoginBusy(true);setLoginError("");
@@ -157,15 +183,21 @@ function App(){
       setLoginBusy(false);return;
     }
     setUser(data?.user||data?.session?.user||null);
-    setAdmin(true);setLoginOpen(false);setLoginBusy(false);setLoginForm({email:"",password:""});
-    loadRoster();showFlash("MKTA 관리자 모드로 전환되었습니다.");
+    setAdmin(true);setAdminAccess(access||null);setLoginOpen(false);setLoginBusy(false);setLoginForm({email:"",password:""});
+    loadRoster();loadMktaAdminList();showFlash("MKTA 관리자 모드로 전환되었습니다.");
   }
 
   async function signOut(){
-    await supabase?.auth.signOut();setAdmin(false);setUser(null);showFlash("로그아웃했습니다.");
+    await supabase?.auth.signOut();setAdmin(false);setAdminAccess(null);setUser(null);showFlash("로그아웃했습니다.");
   }
 
-  function showFlash(msg){setFlash(msg);window.setTimeout(()=>setFlash(""),2600)}
+  async function loadMktaAdminList(){
+    if(!supabase)return;
+    const{data,error}=await supabase.rpc("mkta_admin_list");
+    if(error){console.error("MKTA 관리자 목록 불러오기 실패",error);return}
+    const next=data||{owner_email:"entjq87@mail.com",second_email:"clemens@jsme.com.au"};
+    setMktaAdminList(next);
+  }
 
   async function setPlayer(matchId,side,slot,memberId){
     if(!admin)return;
@@ -249,7 +281,7 @@ function App(){
   return <div className="app">
     <header className="topbar">
       <button className="brand" onClick={()=>setTab("home")}>
-        <span className="brandMark">MKTA</span>
+        <img className="brandLogo" src="/mkta-logo.png" alt="MKTA logo" />
         <span><b>Melbourne Korean Tennis Association</b><small>OFFICIAL TOURNAMENT SYSTEM</small></span>
       </button>
       <nav>
@@ -325,7 +357,7 @@ function App(){
           <div className="rankingPodium">
             {roster.slice(0,3).map((p,i)=><article key={p.id} className={`podium rank${i+1}`}>
               <span>{i===0?"1st":i===1?"2nd":"3rd"}</span>
-              <h3>{p.name}</h3>
+              <button className="rankingPlayerName podiumName" onClick={()=>openPlayerProfile(p.id)}>{p.name}</button>
               <strong>AKTR {p.rating}</strong>
               <small><ClubBadges clubs={p.clubs}/></small>
             </article>)}
@@ -337,13 +369,116 @@ function App(){
             </div>
             {roster.map((p,i)=><div className="integratedRankRow" key={p.id}>
               <b>{i+1}</b>
-              <strong>{p.name}</strong>
+              <button className="rankingPlayerName" onClick={()=>openPlayerProfile(p.id)}>{p.name}</button>
               <ClubBadges clubs={p.clubs}/>
               <span className="aktrValue">{p.rating}</span>
             </div>)}
           </div>
         </>}
       </section>}
+
+      {tab==="profile"&&(()=>{
+        const member=roster.find(p=>p.id===profileMemberId)||null;
+        const visibleHistory=playerHistory.filter(x=>profileFilter==="ALL"||(profileFilter==="CLUB"&&x.source_type==="club")||(profileFilter==="MKTA"&&x.source_type==="mkta"));
+        const completed=playerHistory.filter(x=>x.won===true||x.won===false);
+        const wins=completed.filter(x=>x.won===true).length;
+        const losses=completed.filter(x=>x.won===false).length;
+        const rate=completed.length?Math.round(wins/completed.length*100):0;
+        return <div className="profilePage">
+          <button className="profileBack" onClick={()=>setTab("ranking")}>← 통합 랭킹으로</button>
+
+          {!member?<section className="panel"><div className="empty">회원 정보를 찾을 수 없습니다.</div></section>:<>
+            <section className="playerProfileHero panel">
+              <div className="playerProfileIdentity">
+                <span className="profileAvatar">{String(member.name||"?").slice(0,1)}</span>
+                <div>
+                  <span className="eyebrow">MKTA PLAYER PROFILE</span>
+                  <h1>{member.name}</h1>
+                  <ClubBadges clubs={member.clubs}/>
+                </div>
+              </div>
+              <div className="playerProfileAktr"><small>현재 AKTR</small><strong>{member.rating}</strong></div>
+            </section>
+
+            <section className="profileStatGrid">
+              <div><small>전체 공식 경기</small><b>{completed.length}</b></div>
+              <div><small>승</small><b>{wins}</b></div>
+              <div><small>패</small><b>{losses}</b></div>
+              <div><small>승률</small><b>{rate}%</b></div>
+            </section>
+
+            <section className="panel">
+              <div className="panelHead profileRecordHead">
+                <div>
+                  <span>COMPLETE RECORD</span>
+                  <h2>통합 경기 전적</h2>
+                  <small>OCTC · MKTC · VKTC · WKTC 클럽 경기와 MKTA 공식경기를 한 번에 표시합니다.</small>
+                </div>
+                <div className="profileFilters">
+                  <button className={profileFilter==="ALL"?"active":""} onClick={()=>setProfileFilter("ALL")}>전체</button>
+                  <button className={profileFilter==="CLUB"?"active":""} onClick={()=>setProfileFilter("CLUB")}>4개 클럽</button>
+                  <button className={profileFilter==="MKTA"?"active":""} onClick={()=>setProfileFilter("MKTA")}>MKTA</button>
+                </div>
+              </div>
+
+              {profileBusy?<div className="empty">경기 전적을 불러오는 중입니다.</div>:
+              !visibleHistory.length?<div className="empty">표시할 경기 전적이 없습니다.</div>:
+              <div className="globalMatchHistory">
+                {visibleHistory.map((m,idx)=>{
+                  const opponentIds=[m.opponent_1_id,m.opponent_2_id].filter(Boolean);
+                  const opponentNames=[
+                    {id:m.opponent_1_id,name:m.opponent_1_name},
+                    {id:m.opponent_2_id,name:m.opponent_2_name}
+                  ].filter(x=>x.id&&x.name);
+                  const partnerClickable=m.partner_id&&roster.some(p=>p.id===m.partner_id);
+                  return <article className="globalMatchRow" key={`${m.source_type}-${m.match_id}-${idx}`}>
+                    <div className={m.won===true?"historyWL win":m.won===false?"historyWL loss":"historyWL pending"}>
+                      {m.won===true?"W":m.won===false?"L":"-"}
+                    </div>
+                    <div className="historySource">
+                      {m.source_type==="mkta"
+                        ?<span className="sourceBadge mkta">MKTA</span>
+                        :<span className={`sourceBadge ${String(m.source_name||"").toLowerCase()}`}>{m.source_name}</span>}
+                      <small>{m.played_date||""}{m.played_time?` · ${String(m.played_time).slice(0,5)}`:""}</small>
+                    </div>
+                    <div className="historyMain">
+                      <b>{m.competition||"공식 경기"}</b>
+                      {m.source_type==="mkta"&&m.team_for&&m.team_against&&
+                        <span className="eventTeamLine">{m.team_for} vs {m.team_against}</span>}
+                      <span className="historyPeople">
+                        {m.match_format==="singles"
+                          ?<strong>단식</strong>
+                          :<>
+                            <span>파트너 </span>
+                            {m.partner_name
+                              ?partnerClickable
+                                ?<button onClick={()=>openPlayerProfile(m.partner_id)}>{m.partner_name}</button>
+                                :<strong>{m.partner_name}</strong>
+                              :<strong>-</strong>}
+                          </>
+                        }
+                        <em> · vs </em>
+                        {opponentNames.map((opp,oi)=><React.Fragment key={opp.id}>
+                          {roster.some(p=>p.id===opp.id)
+                            ?<button onClick={()=>openPlayerProfile(opp.id)}>{opp.name}</button>
+                            :<strong>{opp.name}</strong>}
+                          {oi<opponentNames.length-1&&<span> + </span>}
+                        </React.Fragment>)}
+                      </span>
+                    </div>
+                    <div className="historyResult">
+                      <strong>{m.score_for!=null&&m.score_against!=null?`${m.score_for} - ${m.score_against}`:"-"}</strong>
+                      <span className={Number(m.aktr_delta||0)>=0?"delta plus":"delta minus"}>
+                        {m.aktr_delta==null?"AKTR -":`${Number(m.aktr_delta)>=0?"+":""}${m.aktr_delta} AKTR`}
+                      </span>
+                    </div>
+                  </article>
+                })}
+              </div>}
+            </section>
+          </>}
+        </div>
+      })()}
 
       {tab==="schedule"&&<section className="panel">
         <div className="panelHead"><div><span>DRAW</span><h2>클럽대항전 대진표</h2></div></div>
@@ -417,6 +552,26 @@ function App(){
           </div>
         </section>
         <section className="panel">
+          <div className="panelHead">
+            <div><span>ACCESS CONTROL</span><h2>MKTA 관리자 계정</h2></div>
+            <small>이 사이트의 관리자 권한은 아래 두 계정만 사용할 수 있습니다.</small>
+          </div>
+          <div className="mktaAdminAccounts">
+            <article>
+              <span className="adminSlot">OWNER · 1</span>
+              <strong>{mktaAdminList.owner_email||"entjq87@mail.com"}</strong>
+              <small>MKTA 소유자 · OCTC 관리자와 동일 계정</small>
+            </article>
+            <article>
+              <span className="adminSlot">ADMIN · 2</span>
+              <strong>{mktaAdminList.second_email||"clemens@jsme.com.au"}</strong>
+              <small>MKTA 전용 관리자 · 초기 비밀번호는 외부에서 생성 후 해당 관리자가 변경해서 사용</small>
+            </article>
+          </div>
+          <div className="adminReadOnlyNotice">사이트 내부에서 관리자를 추가/삭제하지 않습니다. Supabase Authentication에서 clemens@jsme.com.au 계정을 생성하고 초기 비밀번호를 설정한 뒤 전달해 주세요.</div>
+        </section>
+
+        <section className="panel">
           <div className="panelHead"><div><span>AKTR LOG</span><h2>MKTA AKTR 변동 기록</h2></div></div>
           <div className="ratingTable">
             {ratingChanges.length===0?<div className="empty">아직 AKTR 확정 경기가 없습니다.</div>:ratingChanges.slice(0,100).map(x=><div key={x.id}>
@@ -434,7 +589,7 @@ function App(){
       <form className="loginModal" onSubmit={signIn}>
         <button type="button" className="close" onClick={()=>setLoginOpen(false)}>×</button>
         <span>MKTA ADMIN</span><h2>관리자 로그인</h2>
-        <p>현재는 기존 시스템 오너 계정 또는 등록된 MKTA 관리자 계정으로 로그인합니다.</p>
+        <p>접속 가능한 계정은 entjq87@mail.com 과 clemens@jsme.com.au 두 개뿐입니다. 두 번째 관리자 계정은 Supabase Authentication에서 초기 비밀번호를 만든 뒤 사용하세요.</p>
         <input type="email" placeholder="Email" value={loginForm.email} onChange={e=>setLoginForm({...loginForm,email:e.target.value})} required/>
         <input type="password" placeholder="Password" value={loginForm.password} onChange={e=>setLoginForm({...loginForm,password:e.target.value})} required/>
         {loginError&&<div className="loginError">{loginError}</div>}
