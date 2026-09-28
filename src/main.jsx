@@ -35,7 +35,11 @@ function App(){
   const[standings,setStandings]=useState([]);
   const[divisionStandings,setDivisionStandings]=useState([]);
   const[ratingChanges,setRatingChanges]=useState([]);
-  const[tab,setTab]=useState("home");
+  const[tab,setTabState]=useState(()=>{
+    const hash=String(window.location.hash||"").replace(/^#/,"");
+    return ["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home";
+  });
+  const navFromPopRef=React.useRef(false);
   const[round,setRound]=useState(1);
   const[divisionFilter,setDivisionFilter]=useState("ALL");
   const[user,setUser]=useState(null);
@@ -56,6 +60,64 @@ function App(){
   const[playerHistory,setPlayerHistory]=useState([]);
   const[profileBusy,setProfileBusy]=useState(false);
   const[profileFilter,setProfileFilter]=useState("ALL");
+
+  function setTab(nextTab,{replace=false,state={}}={}){
+    const safeTab=["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(nextTab)?nextTab:"home";
+    setTabState(safeTab);
+
+    if(navFromPopRef.current){
+      navFromPopRef.current=false;
+      return;
+    }
+
+    const url=safeTab==="home"
+      ? `${window.location.pathname}${window.location.search}`
+      : `${window.location.pathname}${window.location.search}#${safeTab}`;
+
+    const payload={mkta:true,tab:safeTab,...state};
+
+    if(replace)window.history.replaceState(payload,"",url);
+    else window.history.pushState(payload,"",url);
+  }
+
+  useEffect(()=>{
+    const initialHash=String(window.location.hash||"").replace(/^#/,"");
+    const initialTab=["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(initialHash)?initialHash:"home";
+    window.history.replaceState({mkta:true,tab:initialTab},"",window.location.href);
+
+    const onPopState=(event)=>{
+      const hash=String(window.location.hash||"").replace(/^#/,"");
+      const nextTab=event.state?.mkta&&event.state?.tab
+        ?event.state.tab
+        :(["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home");
+
+      navFromPopRef.current=true;
+      setTabState(nextTab);
+
+      if(nextTab==="profile"&&event.state?.memberId){
+        setProfileMemberId(event.state.memberId);
+        setProfileFilter("ALL");
+        if(supabase){
+          setProfileBusy(true);
+          supabase.rpc("mkta_player_match_history",{p_member_id:event.state.memberId}).then(({data,error})=>{
+            if(error){
+              console.error("통합 경기전적 불러오기 실패",error);
+              setPlayerHistory([]);
+            }else{
+              setPlayerHistory(data||[]);
+            }
+            setProfileBusy(false);
+          });
+        }
+      }else{
+        setProfileMemberId(null);
+        setPlayerHistory([]);
+      }
+    };
+
+    window.addEventListener("popstate",onPopState);
+    return()=>window.removeEventListener("popstate",onPopState);
+  },[]);
 
   useEffect(()=>{
     if(!supabase){setAuthReady(true);return}
@@ -197,7 +259,7 @@ function App(){
   async function openPlayerProfile(memberId){
     setProfileMemberId(memberId);
     setProfileFilter("ALL");
-    setTab("profile");
+    setTab("profile",{state:{memberId}});
     if(!supabase)return;
     setProfileBusy(true);
     const{data,error}=await supabase.rpc("mkta_player_match_history",{p_member_id:memberId});
@@ -284,7 +346,7 @@ function App(){
       setUser(null);
       setAdmin(false);
       setAdminAccess(null);
-      setTab("home");
+      setTab("home",{replace:true});
       setLoginOpen(true);
       showFlash("관리자 비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해주세요.");
     }catch(err){
@@ -480,7 +542,7 @@ function App(){
         const losses=completed.filter(x=>x.won===false).length;
         const rate=completed.length?Math.round(wins/completed.length*100):0;
         return <div className="profilePage">
-          <button className="profileBack" onClick={()=>setTab("ranking")}>← 통합 랭킹으로</button>
+          <button className="profileBack" onClick={()=>window.history.back()}>← 이전 페이지</button>
 
           {!member?<section className="panel"><div className="empty">회원 정보를 찾을 수 없습니다.</div></section>:<>
             <section className="playerProfileHero panel">
