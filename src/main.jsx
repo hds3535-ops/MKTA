@@ -124,16 +124,38 @@ function App(){
 
   useEffect(()=>{
     if(!supabase||!authReady)return;
-    if(!user){setAdmin(false);return}
+    if(!user){
+      setAdmin(false);
+      setAdminAccess(null);
+      setRankingRoster([]);
+      setHiddenRankingIds([]);
+      if(["ranking","profile","admin"].includes(tab))setTab("home",{replace:true});
+      return;
+    }
     supabase.rpc("mkta_admin_access").then(({data,error})=>{
-      if(error){console.error(error);setAdmin(false);setAdminAccess(null);return}
+      if(error){
+        console.error(error);
+        setAdmin(false);
+        setAdminAccess(null);
+        setRankingRoster([]);
+        setHiddenRankingIds([]);
+        if(["ranking","profile","admin"].includes(tab))setTab("home",{replace:true});
+        return;
+      }
       setAdmin(!!data?.allowed);
       setAdminAccess(data||null);
-      if(data?.allowed)loadRankingVisibilityAdmin();
+      if(data?.allowed){
+        loadIntegratedRanking();
+        loadRankingVisibilityAdmin();
+      }else{
+        setRankingRoster([]);
+        setHiddenRankingIds([]);
+        if(["ranking","profile","admin"].includes(tab))setTab("home",{replace:true});
+      }
     });
   },[authReady,user?.id]);
 
-  useEffect(()=>{loadAll();loadRoster();loadIntegratedRanking()},[]);
+  useEffect(()=>{loadAll();loadRoster()},[]);
 
   const teamMap=useMemo(()=>Object.fromEntries(teams.map(x=>[x.id,x])),[teams]);
   const divisionMap=useMemo(()=>Object.fromEntries(divisions.map(x=>[x.id,x])),[divisions]);
@@ -285,11 +307,18 @@ function App(){
     }
     setUser(data?.user||data?.session?.user||null);
     setAdmin(true);setAdminAccess(access||null);setLoginOpen(false);setLoginBusy(false);setLoginForm({email:"",password:""});
-    loadRoster();loadRankingVisibilityAdmin();showFlash("MKTA 관리자 모드로 전환되었습니다.");
+    loadRoster();loadIntegratedRanking();loadRankingVisibilityAdmin();showFlash("MKTA 관리자 모드로 전환되었습니다.");
   }
 
   async function signOut(){
-    await supabase?.auth.signOut();setAdmin(false);setAdminAccess(null);setUser(null);showFlash("로그아웃했습니다.");
+    await supabase?.auth.signOut();
+    setAdmin(false);
+    setAdminAccess(null);
+    setUser(null);
+    setRankingRoster([]);
+    setHiddenRankingIds([]);
+    if(["ranking","profile","admin"].includes(tab))setTab("home",{replace:true});
+    showFlash("로그아웃했습니다.");
   }
 
   async function changeAdminPassword(e){
@@ -435,7 +464,7 @@ function App(){
         <span><b>Melbourne Korean Tennis Association</b><small>OFFICIAL TOURNAMENT SYSTEM</small></span>
       </button>
       <nav>
-        {[["home","홈"],["ranking","통합 랭킹"],["schedule","대진표"],["standings","실시간 순위"],["teams","팀 · 선수"],["scores","경기 입력"]].map(x=>
+        {[["home","홈"],...(admin?[["ranking","통합 랭킹"]]:[]),["schedule","대진표"],["standings","실시간 순위"],["teams","팀 · 선수"],["scores","경기 입력"]].map(x=>
           <button key={x[0]} className={tab===x[0]?"active":""} onClick={()=>setTab(x[0])}>{x[1]}</button>
         )}
         {admin&&<button className={tab==="admin"?"active":""} onClick={()=>setTab("admin")}>관리자</button>}
@@ -489,7 +518,7 @@ function App(){
         </section>
       </>}
 
-      {tab==="ranking"&&<section className="panel">
+      {tab==="ranking"&&admin&&<section className="panel">
         <div className="panelHead">
           <div><span>MKTA AKTR RANKING</span><h2>4개 클럽 통합 랭킹</h2></div>
           <small>OCTC · MKTC · VKTC · WKTC 활성 회원을 글로벌 선수 ID 기준으로 한 번만 표시합니다.</small>
@@ -527,7 +556,7 @@ function App(){
         </>}
       </section>}
 
-      {tab==="profile"&&(()=>{
+      {tab==="profile"&&admin&&(()=>{
         const member=roster.find(p=>p.id===profileMemberId)||null;
         const visibleHistory=playerHistory.filter(x=>profileFilter==="ALL"||(profileFilter==="CLUB"&&x.source_type==="club")||(profileFilter==="MKTA"&&x.source_type==="mkta"));
         const completed=playerHistory.filter(x=>x.won===true||x.won===false);
