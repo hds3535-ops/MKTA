@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState}from"react";
 import{createRoot}from"react-dom/client";
 import{supabase,supabaseConfigStatus}from"./lib/supabase";
 import"./styles.css";
+import OpenTournaments from "./OpenTournaments";
 
 const EVENT_ID="66666666-6666-4666-8666-666666666666";
 const CLUB_IDS={
@@ -37,7 +38,7 @@ function App(){
   const[ratingChanges,setRatingChanges]=useState([]);
   const[tab,setTabState]=useState(()=>{
     const hash=String(window.location.hash||"").replace(/^#/,"");
-    return ["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home";
+    return ["home","legacy","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home";
   });
   const[round,setRound]=useState(1);
   const[divisionFilter,setDivisionFilter]=useState("ALL");
@@ -61,7 +62,7 @@ function App(){
   const[profileFilter,setProfileFilter]=useState("ALL");
 
   function setTab(nextTab,{replace=false,state={}}={}){
-    const safeTab=["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(nextTab)?nextTab:"home";
+    const safeTab=["home","legacy","ranking","schedule","standings","teams","scores","admin","profile"].includes(nextTab)?nextTab:"home";
     setTabState(safeTab);
 
     const url=safeTab==="home"
@@ -76,14 +77,14 @@ function App(){
 
   useEffect(()=>{
     const initialHash=String(window.location.hash||"").replace(/^#/,"");
-    const initialTab=["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(initialHash)?initialHash:"home";
+    const initialTab=["home","legacy","ranking","schedule","standings","teams","scores","admin","profile"].includes(initialHash)?initialHash:"home";
     window.history.replaceState({mkta:true,tab:initialTab},"",window.location.href);
 
     const onPopState=(event)=>{
       const hash=String(window.location.hash||"").replace(/^#/,"");
       const nextTab=event.state?.mkta&&event.state?.tab
         ?event.state.tab
-        :(["home","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home");
+        :(["home","legacy","ranking","schedule","standings","teams","scores","admin","profile"].includes(hash)?hash:"home");
 
       setTabState(nextTab);
 
@@ -92,7 +93,7 @@ function App(){
         setProfileFilter("ALL");
         if(supabase){
           setProfileBusy(true);
-          supabase.rpc("mkta_player_match_history",{p_member_id:event.state.memberId}).then(({data,error})=>{
+          supabase.rpc("mkta_player_match_history_all",{p_member_id:event.state.memberId}).then(({data,error})=>{
             if(error){
               console.error("통합 경기전적 불러오기 실패",error);
               setPlayerHistory([]);
@@ -277,7 +278,7 @@ function App(){
     setTab("profile",{state:{memberId,fromTab:tab}});
     if(!supabase)return;
     setProfileBusy(true);
-    const{data,error}=await supabase.rpc("mkta_player_match_history",{p_member_id:memberId});
+    const{data,error}=await supabase.rpc("mkta_player_match_history_all",{p_member_id:memberId});
     if(error){
       console.error("통합 경기전적 불러오기 실패",error);
       setPlayerHistory([]);
@@ -464,7 +465,7 @@ function App(){
         <span><b>Melbourne Korean Tennis Association</b><small>OFFICIAL TOURNAMENT SYSTEM</small></span>
       </button>
       <nav>
-        {[["home","홈"],...(admin?[["ranking","통합 랭킹"]]:[]),["schedule","대진표"],["standings","실시간 순위"],["teams","팀 · 선수"],["scores","경기 입력"]].map(x=>
+        {[["home","대회"],...(admin?[["ranking","통합 랭킹"]]:[]),["legacy","클럽대항전"]].map(x=>
           <button key={x[0]} className={tab===x[0]?"active":""} onClick={()=>setTab(x[0])}>{x[1]}</button>
         )}
         {admin&&<button className={tab==="admin"?"active":""} onClick={()=>setTab("admin")}>관리자</button>}
@@ -478,7 +479,11 @@ function App(){
       {flash&&<div className="flash">{flash}</div>}
       {!supabase&&<div className="envWarn">Supabase 연결 필요 · URL {supabaseConfigStatus.hasUrl?"✓":"✕"} · KEY {supabaseConfigStatus.hasKey?"✓":"✕"}</div>}
 
-      {tab==="home"&&<>
+      {tab==="home"&&<OpenTournaments admin={admin} roster={roster}/>}
+
+      {["legacy","schedule","standings","teams","scores"].includes(tab)&&<div className="legacyNav"><b>기존 클럽대항전 기록</b>{[["legacy","대항전 홈"],["schedule","대진표"],["standings","순위"],["teams","팀·선수"],["scores","경기 입력"]].map(([k,label])=><button className={tab===k?"active":""} key={k} onClick={()=>setTab(k)}>{label}</button>)}</div>}
+
+      {tab==="legacy"&&<>
         <section className="hero">
           <div>
             <span className="eyebrow">MKTA OFFICIAL EVENT</span>
