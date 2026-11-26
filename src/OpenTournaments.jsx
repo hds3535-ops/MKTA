@@ -4,7 +4,8 @@ import {supabase} from './lib/supabase';
 const STAGES=[['group','조별리그'],['r16','16강'],['qf','8강'],['sf','4강'],['final','결승'],['third','3·4위전']];
 const STAGE_LABEL=Object.fromEntries(STAGES);
 const letters=n=>Array.from({length:n},(_,i)=>String.fromCharCode(65+i));
-const STAGES_FOR=n=>STAGES.filter(([stage])=>stage==='group'||stage==='final'||stage==='third'||(stage==='r16'&&n>=16)||(stage==='qf'&&n>=8)||stage==='sf');
+const STAGES_FOR=n=>STAGES.filter(([stage])=>stage==='group'||stage==='final'||(stage==='third'&&n>=4)||(stage==='r16'&&n>=16)||(stage==='qf'&&n>=8)||(stage==='sf'&&n>=4));
+const PLAYOFF_LABEL=n=>Number(n)===2?'결승':`${n}강`;
 const empty={is_admin:false,events:[],divisions:[],entrants:[],pairs:[],matches:[],changes:[]};
 function eventStatus(status){return status==='completed'?'종료':status==='live'?'진행중':'준비중'}
 function standingsFor(groupPairs,matches){
@@ -213,10 +214,10 @@ export default function OpenTournaments({admin,roster=[]}){
     <div className="openDivisionManageList">{divisions.map(d=><div className="openDivisionManageItem" key={d.id}><span className="openDivisionPill">{d.name}</span><button type="button" className="openDivisionRemove" disabled={busy} aria-label={`${d.name} 부서 삭제`} title="등록된 참가자·팀·경기가 없는 부서만 삭제할 수 있습니다." onClick={()=>removeDivision(d)}>삭제</button></div>)}</div>
     <form className="openInlineForm" onSubmit={e=>{const f=new FormData(e.currentTarget);submitForm(e,'division_add',{event_id:event.id,name:f.get('name'),code:f.get('code'),display_order:divisions.length+1})}}><input name="name" required placeholder="새 부서명"/><input name="code" required placeholder="부서 코드(예: mixed)"/><button className="primary" disabled={busy}>부서 추가</button></form>
    </section>}
-   <div className="openDivisionTabs">{divisions.map(d=><button key={d.id} className={d.id===division?.id?'active':''} onClick={()=>{setDivId(d.id);setSection('draw');setPlayerSearches(['','']);setTeamForm({group_code:'A',team_no:1,players:[blankTeamPlayer(),blankTeamPlayer()]});setMatchForm({...matchForm,group_code:'A'})}}>{d.name}</button>)}</div>
+   <div className="openDivisionTabs">{divisions.map(d=><button key={d.id} className={d.id===division?.id?'active':''} onClick={()=>{setDivId(d.id);setSection('draw');setPlayerSearches(['','']);setTeamForm({group_code:'A',team_no:1,players:[blankTeamPlayer(),blankTeamPlayer()]});setMatchForm({stage:'group',group_code:'A',pair_a_id:'',pair_b_id:'',court_no:'',match_order:1})}}>{d.name}</button>)}</div>
    {division&&<>
     <section className="panel openDivisionInfo">
-     <div><span className="openEyebrow">{division.name}</span><h2>{division.group_count}개 조 · 본선 {division.playoff_start}강부터</h2><p>참가 {entrants.length}명 / 복식 {pairs.length}팀 · {division.seed_locked?`비회원 임시 AKTR ${division.guest_seed}점 확정`:'비회원 임시 AKTR 확정 전'}</p></div>
+     <div><span className="openEyebrow">{division.name}</span><h2>{division.group_count}개 조 · 본선 {PLAYOFF_LABEL(division.playoff_start)}부터</h2><p>참가 {entrants.length}명 / 복식 {pairs.length}팀 · {division.seed_locked?`비회원 임시 AKTR ${division.guest_seed}점 확정`:'비회원 임시 AKTR 확정 전'}</p></div>
      <div className="openSubtabs">{[['draw','조별리그·순위'],['bracket','본선 대진'],['people','참가 선수·팀'],...(adminMode?[['manage','대회 입력']]:[])].map(([id,name])=><button className={section===id?'active':''} onClick={()=>setSection(id)} key={id}>{name}</button>)}</div>
     </section>
     {section==='draw'&&<div className="openGroupGrid">{groupNames.map(g=>{
@@ -225,7 +226,7 @@ export default function OpenTournaments({admin,roster=[]}){
       {rows.length?<div className="openStandings"><div className="openStandingRow head"><span>#</span><span>복식 팀</span><span>경기</span><span>승</span><span>패</span><span>득실차</span></div>{rows.map((r,i)=><div className="openStandingRow" key={r.id}><b>{i+1}</b><strong>{pairLabel(r.id)}</strong><span>{r.played}</span><span>{r.wins}</span><span>{r.losses}</span><span>{r.for-r.against>=0?'+':''}{r.for-r.against}</span></div>)}</div>:<p className="openEmpty">아직 이 조에 등록된 복식 팀이 없습니다.</p>}
       <div className="openMatchesMini">{gMatches.length===0?<small>경기 일정 미등록</small>:gMatches.map(m=><div key={m.id}><span>{pairLabel(m.pair_a_id)}</span><b>{m.score_a==null?'vs':`${m.score_a} : ${m.score_b}`}</b><span>{pairLabel(m.pair_b_id)}</span>{m.rating_applied&&<em>AKTR ✓</em>}</div>)}</div>
      </section>})}</div>}
-    {section==='bracket'&&<section className="panel"><div className="panelHead"><div><h2>{division.name} 본선</h2><small>{division.playoff_start}강부터 시작 · 기록된 경기만 표시</small></div></div>
+    {section==='bracket'&&<section className="panel"><div className="panelHead"><div><h2>{division.name} 본선</h2><small>{PLAYOFF_LABEL(division.playoff_start)}부터 시작 · 기록된 경기만 표시</small></div></div>
      <div className="openBracketColumns">{stages.filter(([id])=>id!=='group').map(([key,label])=><div key={key} className="openBracketColumn"><h3>{label}</h3>{bracketMatches.filter(m=>m.stage===key).length===0?<div className="openEmpty">경기 미등록</div>:bracketMatches.filter(m=>m.stage===key).map(m=><article key={m.id}><small>Match {m.match_order}</small><div className={m.winner==='A'?'winner':''}>{pairLabel(m.pair_a_id)} <b>{m.score_a??'–'}</b></div><div className={m.winner==='B'?'winner':''}>{pairLabel(m.pair_b_id)} <b>{m.score_b??'–'}</b></div>{m.rating_applied&&<small>AKTR 반영 ✓</small>}</article>)}</div>)}</div>
     </section>}
     {section==='people'&&<section className="panel"><div className="panelHead"><h2>{division.name} 출전 선수 · 복식 팀</h2></div>
@@ -233,7 +234,7 @@ export default function OpenTournaments({admin,roster=[]}){
     </section>}
     {section==='manage'&&adminMode&&<>
      <section className="panel"><div className="panelHead"><h2>① 부서 운영 설정</h2><small>각 부서별 독립 설정</small></div>
-      <form className="openInlineForm" key={division.id} onSubmit={e=>{const f=new FormData(e.currentTarget);submitForm(e,'division_config',{division_id:division.id,group_count:Number(f.get('group_count')),playoff_start:Number(f.get('playoff_start'))})}}><label>조 개수<select name="group_count" defaultValue={division.group_count}>{Array.from({length:8},(_,i)=>i+1).map(n=><option value={n} key={n}>{letters(n).join(' · ')}조 ({n}개)</option>)}</select></label><label>본선 시작<select name="playoff_start" defaultValue={division.playoff_start}>{[16,8,4].map(n=><option key={n} value={n}>{n}강</option>)}</select></label><button className="primary" disabled={busy}>부서 설정 저장</button></form>
+      <form className="openInlineForm" key={division.id} onSubmit={e=>{const f=new FormData(e.currentTarget);submitForm(e,'division_config',{division_id:division.id,group_count:Number(f.get('group_count')),playoff_start:Number(f.get('playoff_start'))})}}><label>조 개수<select name="group_count" defaultValue={division.group_count}>{Array.from({length:8},(_,i)=>i+1).map(n=><option value={n} key={n}>{letters(n).join(' · ')}조 ({n}개)</option>)}</select></label><label>본선 시작<select name="playoff_start" defaultValue={division.playoff_start}>{[16,8,4,2].map(n=><option key={n} value={n}>{PLAYOFF_LABEL(n)}</option>)}</select></label><button className="primary" disabled={busy}>부서 설정 저장</button></form>
      </section>
      <section className="panel"><div className="panelHead"><h2>② 복식팀 참가자 등록 · 조 및 팀 번호</h2><small>한 팀에 선수 2명 등록 · 조별리그부터 본선까지 파트너 고정</small></div>
       <form className="openPairRegistration" onSubmit={registerTeam}>
@@ -270,7 +271,7 @@ export default function OpenTournaments({admin,roster=[]}){
        <div className="openEntrantList">{unpairedEntrants.map(e=><div key={e.id}><span><strong>{e.display_name}</strong><small>{e.member_id?'연합회원':'비회원'}</small></span><button disabled={busy||division.seed_locked} onClick={()=>{if(window.confirm('미배정 선수를 삭제할까요?'))act('entrant_remove',{entrant_id:e.id})}}>삭제</button></div>)}</div>
       </div>}
      </section>
-     <section className="panel"><div className="panelHead"><h2>④ 조별리그 · 본선 경기 등록</h2><small>본선은 16/8/4강 중 설정한 단계부터 수동 등록</small></div>
+     <section className="panel"><div className="panelHead"><h2>④ 조별리그 · 본선 경기 등록</h2><small>{Number(division.playoff_start)===2?'조별리그 종료 후 결승 1경기만 수동 등록':'본선은 설정한 단계부터 수동 등록'}</small></div>
       <form className="openInlineForm" onSubmit={e=>{e.preventDefault();act('match_add',{division_id:division.id,...matchForm,court_no:matchForm.court_no||null,match_order:Number(matchForm.match_order)}).then(ok=>ok&&setMatchForm({...matchForm,pair_a_id:'',pair_b_id:''}))}}>
        <label>구분<select value={matchForm.stage} onChange={e=>setMatchForm({...matchForm,stage:e.target.value,pair_a_id:'',pair_b_id:''})}>{stages.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label>
        {matchForm.stage==='group'&&<label>조<select value={matchForm.group_code} onChange={e=>setMatchForm({...matchForm,group_code:e.target.value,pair_a_id:'',pair_b_id:''})}>{groupNames.map(g=><option key={g} value={g}>{g}조</option>)}</select></label>}
