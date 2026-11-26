@@ -761,3 +761,37 @@
 @media(max-width:940px){.openEventHero,.openEventSummary,.openDivisionInfo{display:block}.openEventSelector{margin-top:18px;min-width:0}.openEventCounts{min-width:0;margin-top:17px}.openAdminBar{grid-template-columns:1fr}.openScoreRow{grid-template-columns:1fr 100px 1fr}.openScoreRow>div:first-child{grid-column:1/-1}.openScoreActions{grid-column:1/-1}.openStandingRow{grid-template-columns:25px minmax(90px,1fr) repeat(4,30px);font-size:10px}.openSeedControl{display:block}.openSeedControl button{margin-top:10px;white-space:normal}.openInlineForm label,.openInlineForm>select,.openInlineForm>input{min-width:100%;max-width:none}}
 
 .openDivisionPill{display:inline-block;padding:7px 11px;background:#f2f6fa;color:#325b7e;font-size:11px;font-weight:800;border-radius:99px}
+
+/* MKTA v1.15 — division removal controls (admin only) */
+.openDivisionManageList{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:10px}
+.openDivisionManageItem{display:inline-flex;align-items:center;gap:6px;padding:4px 5px 4px 2px;border:1px solid #dce6ee;border-radius:12px;background:#f8fafc;max-width:100%}
+.openDivisionManageItem .openDivisionPill{background:transparent;overflow-wrap:anywhere}
+.openDivisionRemove{border:1px solid #e0b8b6;border-radius:8px;padding:6px 9px;color:#a33b37;background:#fff;font-size:11px;font-weight:800;white-space:nowrap}
+.openDivisionRemove:hover:not(:disabled){background:#fff0ef;border-color:#b86259}
+.openDivisionRemove:disabled{opacity:.5;cursor:not-allowed}
+
+/* v1.16: Association player lookup in competition entry */
+.openMemberAddForm .openMemberSearchLabel,.openMemberAddForm .openMemberSelectLabel{min-width:min(100%,220px);flex:1 1 220px}
+.openMemberSelectLabel small{font-weight:600;color:#687c90}
+.openMemberAddForm input[type=search],.openMemberAddForm select{max-width:none}
+
+/* MKTA v1.17 — fixed doubles teams: group/team number and searchable players */
+.openPairRegistration{display:grid;gap:15px;margin-top:16px}
+.openPairPlacement{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:14px;border:1px solid #d9e6f1;background:#f5f9fd;border-radius:13px}
+.openPairPlacement label,.openPairPlayerPanel label,.openTeamEditForm label{display:grid;gap:6px;font-size:11px;font-weight:800;color:#5a6f85}
+.openPairPlacement label{width:160px;max-width:100%}
+.openPairPlacement select,.openPairPlacement input,.openPairPlayerPanel input,.openPairPlayerPanel select,.openTeamEditForm select,.openTeamEditForm input{width:100%;min-width:0;border:1px solid #cad8e5;border-radius:9px;background:white;padding:10px;font-size:12px;color:#243d59}
+.openPairPlacement strong{margin:0 0 3px;padding:10px 17px;background:#173f69;color:#fff;border-radius:10px;white-space:nowrap}
+.openPairRegistrationPlayers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.openPairPlayerPanel{display:grid;align-content:start;gap:11px;min-width:0;border:1px solid #dee6ee;border-radius:14px;background:#fafcff;padding:15px}
+.openPairPlayerHead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.openPairPlayerHead strong{font-size:14px;color:#294e70}.openPairPlayerHead span{font-size:10px;color:#748da2}
+.openPairPlayerPanel label small{font-size:10px;font-weight:600}.openPairRegisterActions{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.openPairRegisterActions p,.openUnpairedPanel p{font-size:11px;color:#718499;line-height:1.6;margin:0;max-width:640px}
+.openPairRegisterActions button{font-size:12px;white-space:nowrap;padding:12px 17px}
+.openTeamEntryRow{flex-wrap:wrap}.openTeamEntryActions{display:flex;flex-wrap:wrap;gap:5px}
+.openTeamEditForm{flex:1 0 100%;display:flex;flex-wrap:wrap;align-items:end;gap:8px;padding:11px;background:#f0f6fa;border-radius:10px}
+.openTeamEditForm label{min-width:110px}.openTeamEditForm button{padding:10px 14px}
+.openUnpairedPanel{margin-top:18px;padding:15px;border:1px dashed #b7cce0;border-radius:12px}
+.openUnpairedPanel h3{margin:0 0 6px;font-size:14px}
+@media(max-width:760px){.openPairRegistrationPlayers{grid-template-columns:1fr}.openPairRegisterActions{align-items:stretch;flex-direction:column}.openPairRegisterActions button{width:100%}.openPairPlacement label{flex:1;min-width:130px}.openPairPlacement strong{width:100%;text-align:center}}
